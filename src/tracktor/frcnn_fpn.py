@@ -1,7 +1,11 @@
+from collections import OrderedDict
+
 import torch
 import torch.nn.functional as F
 
+from torchvision.models.utils import load_state_dict_from_url
 from torchvision.models.detection import FasterRCNN
+from torchvision.models.detection.faster_rcnn import model_urls
 from torchvision.models.detection.backbone_utils import resnet_fpn_backbone
 
 
@@ -16,8 +20,16 @@ class FRCNN_FPN(FasterRCNN):
         img = img.to(device)
 
         detections = self(img)[0]
+        # Only use labels for person
+        detections['boxes'] = detections['boxes'][detections['labels'] == 1]
+        detections['scores'] = detections['scores'][detections['labels'] == 1]
 
         return detections['boxes'].detach(), detections['scores'].detach()
+
+    def load_pretrained(self):
+        state_dict = load_state_dict_from_url(
+            model_urls['fasterrcnn_resnet50_fpn_coco'], progress=True)
+        self.load_state_dict(state_dict)
 
     def predict_boxes(self, images, boxes):
         device = list(self.parameters())[0].device
@@ -44,6 +56,9 @@ class FRCNN_FPN(FasterRCNN):
         box_features = self.roi_heads.box_head(box_features)
         class_logits, box_regression = self.roi_heads.box_predictor(
             box_features)
+        if class_logits.shape[1] == 91:  # pretrained coco model
+            class_logits = class_logits[:, :2]
+            box_regression = box_regression[:, :8]
 
         pred_boxes = self.roi_heads.box_coder.decode(box_regression, proposals)
         pred_scores = F.softmax(class_logits, -1)

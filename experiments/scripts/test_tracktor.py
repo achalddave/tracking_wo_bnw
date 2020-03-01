@@ -56,9 +56,23 @@ def main(tracktor, reid, _config, _log, _run):
     # object detection
     _log.info("Initializing object detector.")
 
-    obj_detect = FRCNN_FPN(num_classes=2)
-    obj_detect.load_state_dict(torch.load(_config['tracktor']['obj_detect_model'],
-                               map_location=lambda storage, loc: storage))
+    if _config['tracktor']['obj_detect_model'] == 'pretrained':
+        obj_detect = FRCNN_FPN(num_classes=91)
+        obj_detect.load_pretrained()
+    elif _config['tracktor']['obj_detect_model'] == 'detectron2':
+        torch.set_num_threads(2)
+        os.environ['OMP_NUM_THREADS'] = '2'
+        softmax_only_person = not _config['tracktor'].get(
+            'multiclass_softmax_overall', False)
+        obj_detect = FRCNN_FPN_Detectron2(
+            _config['tracktor']['obj_detect_config'],
+            _config['tracktor']['obj_detect_weights'],
+            softmax_only_person=softmax_only_person)
+    else:
+        obj_detect = FRCNN_FPN(num_classes=2)
+        obj_detect.load_state_dict(
+            torch.load(_config['tracktor']['obj_detect_model'],
+                       map_location=lambda storage, loc: storage))
 
     obj_detect.eval()
     obj_detect.cuda()
