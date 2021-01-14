@@ -15,6 +15,7 @@ from tqdm import tqdm
 import sacred
 from sacred import Experiment
 from tracktor.frcnn_fpn import FRCNN_FPN
+from tracktor.frcnn_fpn_detectron2 import FRCNN_FPN_Detectron2
 from tracktor.config import get_output_dir
 from tracktor.datasets.factory import Datasets
 from tracktor.oracle_tracker import OracleTracker
@@ -29,6 +30,9 @@ ex.add_config('experiments/cfgs/tracktor.yaml')
 # hacky workaround to load the corresponding configs and not having to hardcode paths here
 ex.add_config(ex.configurations[0]._conf['tracktor']['reid_config'])
 ex.add_named_config('oracle', 'experiments/cfgs/oracle_tracktor.yaml')
+ex.add_named_config(
+    'detectron2_coco_r50fpn1x_no_camera_no_reid',
+    'experiments/cfgs/tracktor_detectron2_r50fpn1x_coco_no_camera_no_reid.yaml')
 
 
 @ex.automain

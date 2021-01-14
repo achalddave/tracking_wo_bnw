@@ -65,6 +65,35 @@ class ResNet(models.ResNet):
 
     def test_rois(self, image, rois):
         """Tests the rois on a particular image. Should be inside image."""
+        h, w = image.shape[-2:]
+
+        # Clamp RoIs to image boundaries.
+        # NOTE (achald, 01/14/2021): I don't recall why this clamping was
+        # added, but I believe it has to do with detectron2 models sometimes
+        # outputting RoIs that are not clamped, while pytorch detection models
+        # don't have this issue.
+        old_rois = rois
+        rois = rois.clone()
+        rois[:, 0].clamp_(min=0, max=w-1e-9)
+        rois[:, 1].clamp_(min=0, max=h-1e-9)
+        rois[:, 2].clamp_(min=0, max=w-1e-9)
+        rois[:, 3].clamp_(min=0, max=h-1e-9)
+
+        # If x1 < x0, set x1 = x0
+        x1_lt_x0 = rois[:, 2] < rois[:, 0]
+        rois[x1_lt_x0, 2] = rois[x1_lt_x0, 0]
+        # If y1 < y0, set y1 = y0
+        y1_lt_y0 = rois[:, 3] < rois[:, 1]
+        rois[y1_lt_y0, 3] = rois[y1_lt_y0, 1]
+
+        if x1_lt_x0.any():
+            logging.info(
+                f'Updating coordinates of {x1_lt_x0.sum()} rois')
+
+        if y1_lt_y0.any():
+            logging.info(
+                f'Updating coordinates of {y1_lt_y0.sum()} rois')
+
         x = self.build_crops(image, rois)
         x = Variable(x)
         
